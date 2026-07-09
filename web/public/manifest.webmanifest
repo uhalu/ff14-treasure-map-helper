@@ -1,0 +1,18 @@
+{
+  "name": "FF14 宝の地図 照合",
+  "short_name": "宝の地図",
+  "description": "解読済みの宝の地図画像からエリア名と座標を照合するツール",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#1c140c",
+  "theme_color": "#3b2a1a",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,771 @@
+/* FF14 宝の地図 照合 — カメラUI（かざして照合）スタイル。ファイルはこの1つに集約する。 */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #0b0906;
+  color: #f0e6d2;
+  font-family: system-ui, -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif;
+  overscroll-behavior: none;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  height: 100vh;
+}
+
+#app > header {
+  flex: 0 0 auto;
+  padding: 0.5rem 1rem;
+  background: #1c140c;
+  border-bottom: 1px solid #3b2a1a;
+}
+
+#app > header h1 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #f0e6d2;
+}
+
+/* ------------------------------------------------------------------ */
+/* ビューファインダ本体                                                */
+/* ------------------------------------------------------------------ */
+
+#viewfinder {
+  position: relative;
+  flex: 1 1 auto;
+  overflow: hidden;
+  background: #000;
+  min-height: 0;
+}
+
+#video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+}
+
+#capture-canvas {
+  display: none;
+}
+
+/* ガイド枠: JS が computeGuideRect() の結果を left/top/width/height に反映する。
+   box-shadow のスプレッドで枠外を暗くし、QRスキャナ的な「かざす対象」を明示する。 */
+#guide-frame {
+  position: absolute;
+  border: 3px solid rgba(240, 230, 210, 0.9);
+  border-radius: 18px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  transition: border-color 0.2s ease;
+}
+
+#guide-frame.hidden,
+#guide-hint.hidden {
+  display: none;
+}
+
+#guide-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 8%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 0.4rem 0.9rem;
+  /* 長文はガイド枠幅（JS が max-width を設定）で折り返す。未設定時の保険が 85% */
+  box-sizing: border-box;
+  max-width: 85%;
+  width: max-content;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 16px;
+  font-size: 0.85rem;
+  white-space: normal;
+  line-height: 1.5;
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* ローディング / エラー / カメラフォールバック                        */
+/* ------------------------------------------------------------------ */
+
+#loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  text-align: center;
+  background: rgba(10, 8, 6, 0.88);
+}
+
+#loading-overlay[hidden] {
+  display: none;
+}
+
+.spinner {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  border: 3px solid #4a3a24;
+  border-top-color: #e0b95a;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+#status {
+  color: #e0d6c0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+#retry-button {
+  padding: 0.5rem 1.2rem;
+  font-size: 0.95rem;
+}
+
+#retry-button[hidden] {
+  display: none;
+}
+
+#camera-fallback {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 15;
+  padding: 0.75rem 1rem;
+  background: rgba(59, 42, 26, 0.92);
+  border-bottom: 1px solid #7a5a30;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+#camera-fallback[hidden] {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* 低信頼時の候補パネル（下部、スキャン継続中に表示）                    */
+/* ------------------------------------------------------------------ */
+
+#candidates-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  padding: 0.6rem 0.8rem calc(0.6rem + env(safe-area-inset-bottom, 0px));
+  background: rgba(28, 20, 12, 0.85);
+  border-top: 1px solid #3b2a1a;
+}
+
+#candidates-panel[hidden] {
+  display: none;
+}
+
+#candidates-panel p {
+  margin: 0 0 0.3rem;
+  font-size: 0.75rem;
+  color: #b8a888;
+}
+
+#candidates-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+#candidates-list li {
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  background: rgba(240, 230, 210, 0.06);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+#candidates-list li:hover,
+#candidates-list li:focus-visible {
+  background: rgba(240, 230, 210, 0.16);
+  outline: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* 確定結果パネル（大表示）                                             */
+/* ------------------------------------------------------------------ */
+
+#result-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  text-align: center;
+  background: rgba(10, 8, 6, 0.92);
+}
+
+#result-panel[hidden] {
+  display: none;
+}
+
+#result-main {
+  cursor: pointer;
+  padding: 1rem 1.25rem;
+  border-radius: 16px;
+  background: rgba(240, 230, 210, 0.06);
+  max-width: 100%;
+}
+
+#result-zone {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+#result-panel.confident #result-zone {
+  color: #7fd77f;
+}
+
+#result-panel.unsure #result-zone {
+  color: #e0b95a;
+}
+
+#result-grade {
+  margin-top: 0.4rem;
+  font-size: 1rem;
+  color: #d8c8a8;
+}
+
+#result-confidence {
+  margin-top: 0.2rem;
+  font-size: 0.85rem;
+  color: #b8a888;
+}
+
+#result-copy-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #8a7a5c;
+}
+
+#rescan-button {
+  padding: 0.6rem 1.6rem;
+  font-size: 1rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* 下部バー（画像選択フォールバック、常時表示）                          */
+/* ------------------------------------------------------------------ */
+
+#bottom-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+  background: #1c140c;
+  border-top: 1px solid #3b2a1a;
+}
+
+#file-input {
+  /* ネイティブ input は非表示にし、ラベル全体をタップ領域にする */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* 共通ボタン                                                          */
+/* ------------------------------------------------------------------ */
+
+button {
+  font-family: inherit;
+  border: none;
+  border-radius: 999px;
+  background: #e0b95a;
+  color: #1c140c;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:active {
+  filter: brightness(0.92);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+#build-id {
+  margin-left: auto;
+  align-self: center;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+#capture-review {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0;
+}
+#capture-thumb {
+  max-width: 70%;
+  max-height: 140px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  object-fit: contain;
+}
+
+#ocr-status {
+  margin-left: auto;
+  align-self: center;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+}
+#ocr-status.ocr-hit {
+  color: #7fd67f;
+  font-weight: bold;
+}
+#build-id {
+  margin-left: 8px;
+}
+
+#require-ocr-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+  white-space: nowrap;
+}
+
+#lang-select {
+  margin-left: 8px;
+  font-family: inherit;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+  background: #1c140c;
+  border: 1px solid #3b2a1a;
+  border-radius: 6px;
+  padding: 2px 4px;
+}
+
+/* ------------------------------------------------------------------ */
+/* PC用モード（スクショ貼り付け）ページと相互リンク                        */
+/* ------------------------------------------------------------------ */
+
+#camera-fallback a {
+  color: #e0b95a;
+}
+
+#app > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+#camera-link,
+#desktop-header-link {
+  color: #e0b95a;
+  font-size: 0.85rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+#camera-link:hover,
+#desktop-header-link:hover {
+  text-decoration: underline;
+}
+
+#drop-zone {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+#drop-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  margin: 1.5rem;
+  padding: 2.5rem 2rem;
+  max-width: 560px;
+  border: 2px dashed #4a3a24;
+  border-radius: 18px;
+  text-align: center;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+#drop-zone.drag-over #drop-inner {
+  border-color: #e0b95a;
+  background: rgba(224, 185, 90, 0.08);
+}
+
+#drop-hint {
+  margin: 0;
+  color: #d8c8a8;
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+
+#file-button {
+  padding: 0.55rem 1.4rem;
+  font-size: 0.95rem;
+}
+
+#desktop-status {
+  margin: 0;
+  min-height: 1.2em;
+  font-size: 0.85rem;
+  color: #e0b95a;
+}
+
+#desktop-status[hidden] {
+  display: none;
+}
+
+#copy-button {
+  padding: 0.6rem 1.6rem;
+  font-size: 1rem;
+}
+
+#copy-feedback {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #7fd77f;
+}
+
+#copy-feedback[hidden] {
+  display: none;
+}
+
+#auto-read-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+  white-space: nowrap;
+}
+
+#auto-read-label[hidden] {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* PC用モード 鑑定演出                                                   */
+/*   貼り付け → 金のフラッシュ + スキャンビームが走査（.matching 中）      */
+/*   確定     → 印章スタンプ + 光輪バースト + 光条 + きらめき              */
+/* ------------------------------------------------------------------ */
+
+/* スキャンビーム本体。通常時は画面外・透明で、.matching 中だけ走査する */
+#drop-zone::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -45%;
+  height: 45%;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(224, 185, 90, 0.1) 55%,
+    rgba(240, 220, 160, 0.45) 76%,
+    rgba(255, 244, 200, 0.95) 80%,
+    rgba(224, 185, 90, 0.2) 85%,
+    transparent
+  );
+}
+
+#drop-zone.matching::before {
+  opacity: 1;
+  animation: scan-sweep 1.15s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+@keyframes scan-sweep {
+  to {
+    transform: translateY(330%);
+  }
+}
+
+/* 受領フラッシュ（1回）と、その後の呼吸するような金のグロー（ループ） */
+#drop-zone.matching #drop-inner {
+  border-style: solid;
+  border-color: rgba(224, 185, 90, 0.8);
+  animation:
+    appraise-flash 0.5s ease-out,
+    appraise-breath 1.15s ease-in-out 0.5s infinite;
+}
+
+@keyframes appraise-flash {
+  0% {
+    box-shadow:
+      inset 0 0 70px rgba(255, 233, 168, 0.55),
+      0 0 50px rgba(224, 185, 90, 0.45);
+  }
+  100% {
+    box-shadow:
+      inset 0 0 0 rgba(255, 233, 168, 0),
+      0 0 0 rgba(224, 185, 90, 0);
+  }
+}
+
+@keyframes appraise-breath {
+  0%,
+  100% {
+    box-shadow: 0 0 10px rgba(224, 185, 90, 0.12);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(224, 185, 90, 0.4);
+  }
+}
+
+/* 走査中は入力UIを沈め、ステータス文言を脈動させて主役にする */
+#drop-hint,
+#file-button {
+  transition: opacity 0.2s ease;
+}
+
+#drop-zone.matching #drop-hint,
+#drop-zone.matching #file-button {
+  opacity: 0.35;
+}
+
+#drop-zone.matching #desktop-status {
+  animation: status-pulse 1.15s ease-in-out infinite;
+}
+
+@keyframes status-pulse {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* --- 結果の出現（PC用モードのみ。body.desktop でスコープ） ------------ */
+
+.desktop #result-panel:not([hidden]) {
+  animation: panel-fade 0.25s ease-out;
+}
+
+@keyframes panel-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* 地図名の札を印章のように「押す」。ボケ→シャープで勢いを出す */
+.desktop #result-main {
+  position: relative;
+}
+
+.desktop #result-panel:not([hidden]) #result-main {
+  animation: stamp-in 0.5s cubic-bezier(0.2, 1.35, 0.4, 1) both;
+}
+
+@keyframes stamp-in {
+  0% {
+    opacity: 0;
+    transform: scale(1.4);
+    filter: blur(7px);
+  }
+  55% {
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* スタンプ着地に合わせて広がって消える光輪 */
+.desktop #result-panel:not([hidden]) #result-main::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 20px;
+  border: 2px solid rgba(255, 233, 168, 0.9);
+  pointer-events: none;
+  animation: burst-ring 0.7s ease-out 0.18s both;
+}
+
+@keyframes burst-ring {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.92);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.3);
+  }
+}
+
+/* サムネイルとコピーボタンは半歩遅れて下から浮かび上がる */
+.desktop #result-panel:not([hidden]) #capture-review {
+  animation: rise-in 0.4s ease-out 0.16s both;
+}
+
+.desktop #result-panel:not([hidden]) #copy-button {
+  animation: rise-in 0.4s ease-out 0.26s both;
+}
+
+.desktop #result-panel:not([hidden]) #copy-feedback {
+  animation: rise-in 0.3s ease-out;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+/* 確定時だけの「宝を見つけた」感: 回転する光条 + 地図名のグロー + きらめき */
+.desktop #result-panel.confident::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(85vmin, 620px);
+  height: min(85vmin, 620px);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  background: repeating-conic-gradient(
+    rgba(224, 185, 90, 0.1) 0deg 8deg,
+    transparent 8deg 30deg
+  );
+  -webkit-mask-image: radial-gradient(closest-side, rgba(0, 0, 0, 0.9), transparent 72%);
+  mask-image: radial-gradient(closest-side, rgba(0, 0, 0, 0.9), transparent 72%);
+  animation:
+    panel-fade 0.8s ease-out,
+    rays-rotate 30s linear infinite;
+}
+
+@keyframes rays-rotate {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+.desktop #result-panel.confident:not([hidden]) #result-zone {
+  animation: zone-glow 1.2s ease-out 0.2s;
+}
+
+@keyframes zone-glow {
+  0% {
+    text-shadow: 0 0 0 rgba(127, 215, 127, 0);
+  }
+  30% {
+    text-shadow: 0 0 24px rgba(127, 215, 127, 0.8);
+  }
+  100% {
+    text-shadow: 0 0 0 rgba(127, 215, 127, 0);
+  }
+}
+
+.desktop #result-panel.confident:not([hidden]) #result-main::before {
+  content: "";
+  position: absolute;
+  inset: -44px -64px;
+  pointer-events: none;
+  background:
+    radial-gradient(3px 3px at 12% 18%, #ffe9a8 50%, transparent 51%),
+    radial-gradient(4px 4px at 86% 12%, #ffdf80 50%, transparent 51%),
+    radial-gradient(3px 3px at 72% 88%, #fff2c0 50%, transparent 51%),
+    radial-gradient(3.5px 3.5px at 22% 84%, #ffe9a8 50%, transparent 51%),
+    radial-gradient(3px 3px at 94% 58%, #ffe9a8 50%, transparent 51%),
+    radial-gradient(3.5px 3.5px at 6% 52%, #ffdf80 50%, transparent 51%),
+    radial-gradient(2.5px 2.5px at 48% 4%, #fff2c0 50%, transparent 51%),
+    radial-gradient(2.5px 2.5px at 55% 96%, #ffdf80 50%, transparent 51%);
+  animation: sparkle-pop 1.5s ease-out 0.25s both;
+}
+
+@keyframes sparkle-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.2);
+  }
+}
+
+/* 候補パネル（非確定）もふわっと出す */
+.desktop #candidates-panel:not([hidden]) {
+  animation: rise-in 0.3s ease-out;
+}
+
+/* 動きを減らす設定では演出をすべて止める（フィードバックは文言と配色で足りる） */
+@media (prefers-reduced-motion: reduce) {
+  #drop-zone::before {
+    display: none;
+  }
+
+  #drop-zone.matching #drop-inner,
+  #drop-zone.matching #desktop-status,
+  .desktop #result-panel:not([hidden]),
+  .desktop #result-panel:not([hidden]) #result-main,
+  .desktop #result-panel:not([hidden]) #capture-review,
+  .desktop #result-panel:not([hidden]) #copy-button,
+  .desktop #result-panel:not([hidden]) #copy-feedback,
+  .desktop #result-panel.confident::before,
+  .desktop #result-panel.confident:not([hidden]) #result-zone,
+  .desktop #candidates-panel:not([hidden]) {
+    animation: none;
+  }
+
+  .desktop #result-panel:not([hidden]) #result-main::after,
+  .desktop #result-panel.confident:not([hidden]) #result-main::before {
+    content: none;
+  }
+}

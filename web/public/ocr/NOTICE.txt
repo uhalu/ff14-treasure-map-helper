@@ -1,0 +1,18 @@
+このディレクトリは OCR 用の自己ホストアセット（第三者ソフトウェアの再配布）。
+CDN からの実行時ロードを避け、すべて同一オリジンから配信するために同梱している。
+
+- tesseract.min.js / worker.min.js: tesseract.js
+  (Apache-2.0, https://github.com/naptha/tesseract.js)
+  ライセンス全文: LICENSE-tesseract.js.txt
+  バンドルに含まれる第三者コードの表示: tesseract.min.js.LICENSE.txt / worker.min.js.LICENSE.txt
+- tesseract-core-*.wasm.js: tesseract.js-core
+  (Apache-2.0, https://github.com/naptha/tesseract.js-core)
+  ライセンス全文: LICENSE-tesseract.js-core.txt
+- lang/jpn.traineddata.gz: tessdata
+  (Apache-2.0, https://github.com/tesseract-ocr/tessdata)
+- lang/eng.traineddata.gz / deu / fra / kor / chi_sim: tessdata_fast
+  (Apache-2.0, https://github.com/tesseract-ocr/tessdata_fast)
+
+補足: tesseract.min.js / worker.min.js のバンドル内には CDN（jsdelivr）を参照する
+フォールバック URL の文字列が残っているが、本アプリは workerPath / corePath / langPath を
+すべて同一オリジンの本ディレクトリに明示指定しており、実行時に CDN からロードすることはない。

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FF14 宝の地図 照合（PC用）</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#3b2a1a" />
+    <script
+      data-goatcounter="https://uhalu.goatcounter.com/count"
+      async
+      src="//gc.zgo.at/count.js"
+    ></script>
+  </head>
+  <body class="desktop">
+    <div id="app">
+      <header>
+        <h1 data-i18n="desktopTitle">FF14 宝の地図 照合（PC用）</h1>
+        <a id="camera-link" href="./index.html" data-i18n="cameraModeLink">カメラモードへ</a>
+      </header>
+
+      <div id="drop-zone">
+        <div id="drop-inner">
+          <p id="drop-hint" data-i18n="dropHint">
+            ゲーム内で解読した地図ウィンドウを Win+Shift+S で切り取り、ここに Ctrl+V
+            で貼り付けてください（画像のドロップ・ファイル選択も可）
+          </p>
+          <button id="file-button" type="button" data-i18n="selectFile">画像ファイルを選択</button>
+          <input type="file" id="file-input" accept="image/*" />
+          <p id="desktop-status" hidden></p>
+        </div>
+
+        <div id="candidates-panel" hidden>
+          <p data-i18n="candidatesTitle">候補（タップで採用）</p>
+          <ul id="candidates-list"></ul>
+        </div>
+
+        <div id="result-panel" hidden>
+          <div id="result-main">
+            <div id="result-zone"></div>
+            <div id="result-grade"></div>
+            <div id="result-confidence"></div>
+          </div>
+          <div id="capture-review" hidden>
+            <img id="capture-thumb" alt="認識した地図画像" data-i18n-alt="captureAlt" />
+          </div>
+          <p id="copy-feedback" hidden data-i18n="copied">コピーしました</p>
+          <button id="copy-button" type="button" data-i18n="copyResult">結果をコピー</button>
+        </div>
+
+        <div id="loading-overlay">
+          <div class="spinner"></div>
+          <p id="status" data-i18n="dbLoading">DB を読み込み中…</p>
+          <button id="retry-button" type="button" hidden data-i18n="retry">再試行</button>
+        </div>
+      </div>
+
+      <div id="bottom-bar">
+        <label id="auto-read-label" hidden
+          ><input type="checkbox" id="auto-read" /><span data-i18n="autoReadClipboard"
+            >このページに戻ったとき自動で貼り付ける</span
+          ></label
+        >
+        <span id="ocr-status"></span>
+        <select id="lang-select" aria-label="Language">
+          <option value="ja">日本語</option>
+          <option value="en">English</option>
+          <option value="de">Deutsch</option>
+          <option value="fr">Français</option>
+          <option value="ko">한국어</option>
+          <option value="zh">简体中文</option>
+        </select>
+        <span id="build-id"></span>
+      </div>
+    </div>
+    <script type="module" src="/src/desktop.ts"></script>
+  </body>
+</html>

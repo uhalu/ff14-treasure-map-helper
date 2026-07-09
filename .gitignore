@@ -1,0 +1,10 @@
+# Web build
+web/node_modules/
+web/dist/
+# ビルド時に data/maps.json からコピーされる生成物。正は data/maps.json 側。
+web/public/maps.json
+
+# OS / editor
+Thumbs.db
+Desktop.ini
+.idea/
